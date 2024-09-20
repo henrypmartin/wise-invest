@@ -1,12 +1,7 @@
 '''
-Created on 04-Sep-2024
-
-@author: Nomura
-'''
-'''
 Created on 03-Sep-2024
 
-@author: Nomura
+@author: Henry Martin
 '''
 from langchain_huggingface import HuggingFaceEndpointEmbeddings, HuggingFaceEndpoint
 from langchain_community.vectorstores.faiss import FAISS
@@ -16,7 +11,8 @@ from langchain.chains.combine_documents.stuff import create_stuff_documents_chai
 from langchain.chains.retrieval import create_retrieval_chain
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.chat_history import InMemoryChatMessageHistory
-
+from sentence_transformers.SentenceTransformer import SentenceTransformer
+from sentence_transformers import util
 from com.iisc.cds.cohort7.grp11 import config_reader
 
 index_path=None
@@ -63,6 +59,7 @@ system_prompt = (
     "If you don't know the answer, say that you don't know." 
     "Maintain an ethical and unbiased tone, avoiding harmful or offensive content."
     "Do not fabricate information or include questions in your responses."
+    "Do not give one line answers and do not ask questions."
     "\n\n"
     "{context}"
 )
@@ -83,6 +80,19 @@ def get_session_history(session_id: str) -> InMemoryChatMessageHistory:
     if session_id not in store:
         store[session_id] = InMemoryChatMessageHistory()
     return store[session_id]
+
+def validate_answer_against_sources(response_answer, source_documents):
+    model = SentenceTransformer('all-mpnet-base-v2')
+        
+    similarity_threshold = 0.5  
+    source_texts = [doc.page_content for doc in source_documents]
+    answer_embedding = model.encode(response_answer, convert_to_tensor=True)
+    source_embeddings = model.encode(source_texts, convert_to_tensor=True)
+    cosine_scores = util.pytorch_cos_sim(answer_embedding, source_embeddings)
+    if any(score.item() > similarity_threshold for score in cosine_scores[0]):
+        return True  
+
+    return False
 
 def generate_response(query, session_id, llm_model_id, embedding_model):
     
@@ -115,6 +125,11 @@ def generate_response(query, session_id, llm_model_id, embedding_model):
                                     config={ "configurable": {"session_id": session_id}},  # constructs a key "abc123" in `store`.
                                     )
                                     
+    is_valid_answer = validate_answer_against_sources(response["answer"], response["context"])
+    
+    if not is_valid_answer:
+        response['answer'] = "No similarity. Sorry I can not answer the question based on the given documents"
+    
     print(response["context"])
     print("*********************************")
     print(response["answer"])
