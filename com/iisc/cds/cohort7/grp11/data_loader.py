@@ -35,7 +35,7 @@ def prepare_and_embed_webscrapped_data():
             embed_data(docs, data_indexer)
     
     
-def prepare_and_embed_data():
+def prepare_and_embed_pdf_data():
     data_file_path = config_reader.get_property('local', 'extract_dir')
     all_files = os.listdir(data_file_path)
 
@@ -44,8 +44,10 @@ def prepare_and_embed_data():
         print(f'file: {file}')
         if file.endswith('.pdf'):
             
-            docs = []
-            docs.append(PyPDFLoader(data_file_path + "/" + file))
+            pdf_loader = PyPDFLoader(data_file_path + "/" + file)
+            docs = pdf_loader.load()
+            
+            print(docs[0].metadata)
             
             data_indexer = lambda data_index, data_splits: data_index.from_loaders(data_splits)
             
@@ -59,7 +61,7 @@ def embed_data(data_splits, data_indexer):
     #embed_model = OpenAIEmbedding(model_name="FinLang/investopedia_embedding")
         
     text_splitter = RecursiveCharacterTextSplitter(chunk_size = 500, chunk_overlap = 150)
-    
+        
     index_path = config_reader.get_property('local', 'index_dir')
     
     if os.path.isfile(os.path.join(index_path, "index.faiss")):
@@ -86,6 +88,6 @@ def process_data(embedding_model, data_type):
     embedding_model_id = embedding_model
     
     if 'pdf' == data_type:
-        prepare_and_embed_data()
+        prepare_and_embed_pdf_data()
     elif 'webscrapped' == data_type:
         prepare_and_embed_webscrapped_data()

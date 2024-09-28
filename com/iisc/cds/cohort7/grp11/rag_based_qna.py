@@ -21,7 +21,8 @@ embedding_model_id = None
 def qna_llm(model_id):
     llm = HuggingFaceEndpoint(        
         repo_id=model_id,
-        task="text-generation",
+        #task="text-generation",
+        task="question-answering",
         max_new_tokens = 512,
         top_k = 30,
         temperature = 0.1,
@@ -39,9 +40,8 @@ def rag_retriever():
 ### Contextualize question ###
 contextualize_q_system_prompt = (
     "Given a chat history and the latest user question "
-    "which might reference context in the chat history, "
-    "formulate a standalone question which can be understood "
-    "without the chat history. Do NOT answer the question, "
+    "formulate a question which can be understood without the chat history."
+    "Do NOT answer the question, "
     "just reformulate it if needed and otherwise return it as is."
 )
 
@@ -54,12 +54,12 @@ contextualize_q_prompt = ChatPromptTemplate.from_messages(
 )
     
 system_prompt = (
-    "You are a financial advisor system for financial advise related tasks. "
-    "Use the following pieces of retrieved context to answer the question." 
+    "You are a financial advisor system for financial advice related tasks. "
+    "Use the retrieved context to answer the original question." 
+    "Do not fabricate information."
     "If you don't know the answer, say that you don't know." 
     "Maintain an ethical and unbiased tone, avoiding harmful or offensive content."
-    "Do not fabricate information or include questions in your responses."
-    "Do not give one line answers and do not ask questions."
+    "No creativity in responses."
     "\n\n"
     "{context}"
 )
@@ -84,7 +84,7 @@ def get_session_history(session_id: str) -> InMemoryChatMessageHistory:
 def validate_answer_against_sources(response_answer, source_documents):
     model = SentenceTransformer('all-mpnet-base-v2')
         
-    similarity_threshold = 0.5  
+    similarity_threshold = 0.9  
     source_texts = [doc.page_content for doc in source_documents]
     answer_embedding = model.encode(response_answer, convert_to_tensor=True)
     source_embeddings = model.encode(source_texts, convert_to_tensor=True)
@@ -130,8 +130,16 @@ def generate_response(query, session_id, llm_model_id, embedding_model):
     if not is_valid_answer:
         response['answer'] = "No similarity. Sorry I can not answer the question based on the given documents"
     
+    retrieved_doc = response["context"]
     print(response["context"])
     print("*********************************")
     print(response["answer"])
+    #print(f"[Source: {retrieved_doc.metadata['source']}#{retrieved_doc.metadata['page']}]")
+    
+    response = conversational_rag_chain.invoke({"input": "Suggest follow-up question to previous answer, do not answer the question"}, 
+                                    config={ "configurable": {"session_id": session_id}},  # constructs a key "abc123" in `store`.
+                                    )
+    
+    print(f"Follow-up question: {response['answer']}")
     
     return response
