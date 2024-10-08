@@ -12,7 +12,7 @@ section_types = ['investing', 'insurance', 'banking/', 'financialplanning', 'exp
 # Adjust the selectors based on the HTML structure of the page
 # Assuming each name and description is in a <div> with a specific class
 
-save_path = "C:\\Henry\\Learning\\IICS_CDS_Capstone\\moneycontrol\\"
+save_path = "C:\\Henry\\Learning\\IICS_CDS_Capstone\\scrapped_data\\moneycontrol\\"
 
 all_files = os.listdir(save_path)
 

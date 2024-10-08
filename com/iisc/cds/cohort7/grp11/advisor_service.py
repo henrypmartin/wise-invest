@@ -14,6 +14,9 @@ from langchain_core.chat_history import InMemoryChatMessageHistory
 from sentence_transformers.SentenceTransformer import SentenceTransformer
 from sentence_transformers import util
 from com.iisc.cds.cohort7.grp11 import config_reader
+import traceback
+
+import os
 
 index_path=None
 embedding_model_id = None
@@ -24,7 +27,7 @@ def qna_llm(model_id):
         #task="text-generation",
         task="question-answering",
         max_new_tokens = 512,
-        top_k = 30,
+        top_k = 20,
         temperature = 0.1,
         repetition_penalty = 1.03,
         )
@@ -82,9 +85,10 @@ def get_session_history(session_id: str) -> InMemoryChatMessageHistory:
     return store[session_id]
 
 def validate_answer_against_sources(response_answer, source_documents):
-    model = SentenceTransformer('all-mpnet-base-v2')
+    #model = SentenceTransformer('all-mpnet-base-v2')
+    model = SentenceTransformer('flax-sentence-embeddings/all_datasets_v3_MiniLM-L12')
         
-    similarity_threshold = 0.9  
+    similarity_threshold = 0.7  
     source_texts = [doc.page_content for doc in source_documents]
     answer_embedding = model.encode(response_answer, convert_to_tensor=True)
     source_embeddings = model.encode(source_texts, convert_to_tensor=True)
@@ -94,7 +98,7 @@ def validate_answer_against_sources(response_answer, source_documents):
 
     return False
 
-def generate_response(query, session_id, llm_model_id, embedding_model):
+def generate_response_for_model(query, session_id, llm_model_id, embedding_model):
     
     config_reader.load_config()
     
@@ -102,6 +106,7 @@ def generate_response(query, session_id, llm_model_id, embedding_model):
     
     index_path = config_reader.get_property('local', 'index_dir')
     
+    print(f"Index file path {index_path}")
     global embedding_model_id
     
     embedding_model_id = embedding_model
@@ -121,25 +126,39 @@ def generate_response(query, session_id, llm_model_id, embedding_model):
                                                           history_messages_key="chat_history", 
                                                           output_messages_key="answer",)
 
-    response = conversational_rag_chain.invoke({"input": query}, 
-                                    config={ "configurable": {"session_id": session_id}},  # constructs a key "abc123" in `store`.
-                                    )
-                                    
-    is_valid_answer = validate_answer_against_sources(response["answer"], response["context"])
-    
-    if not is_valid_answer:
-        response['answer'] = "No similarity. Sorry I can not answer the question based on the given documents"
-    
-    retrieved_doc = response["context"]
-    print(response["context"])
-    print("*********************************")
-    print(response["answer"])
-    #print(f"[Source: {retrieved_doc.metadata['source']}#{retrieved_doc.metadata['page']}]")
-    
-    response = conversational_rag_chain.invoke({"input": "Suggest follow-up question to previous answer, do not answer the question"}, 
-                                    config={ "configurable": {"session_id": session_id}},  # constructs a key "abc123" in `store`.
-                                    )
-    
-    print(f"Follow-up question: {response['answer']}")
-    
+    try:
+        
+        response = conversational_rag_chain.invoke({"input": query}, 
+                                        config={ "configurable": {"session_id": session_id}},  # constructs a key "abc123" in `store`.
+                                        )
+                                        
+        print(f'Original answer: {response["answer"]}')
+        #is_valid_answer = validate_answer_against_sources(response["answer"], response["context"])
+        
+        #if not is_valid_answer:
+        #    response['answer'] = "Sorry I cannot answer this question based on the knowledge base I am trained on."
+        
+        print(response["context"])
+        print("*********************************")
+        print(f'AI Answer: {response["answer"]}')        
+    except Exception as e:
+        print(f"Error invoking LLM {e}")
+        traceback.print_exc()
+        response = {"answer":"Oops, some problem handling request. Apologies for inconvenience"}
+       
     return response
+
+def generate_response(query, session_id):
+    
+    hfapi_key = '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' #getpass("Enter you HuggingFace access token:")
+    os.environ["HF_TOKEN"] = hfapi_key
+    os.environ["HUGGINGFACEHUB_API_TOKEN"] = hfapi_key
+    
+    #embedding_model = "HuggingFaceH4/zephyr-7b-beta"
+    #embedding_model = "jinaai/jina-embeddings-v3"
+    embedding_model = "flax-sentence-embeddings/all_datasets_v3_MiniLM-L12"
+    #llm_model = "HuggingFaceH4/zephyr-7b-beta"
+    llm_model = "AdaptLLM/finance-LLM"
+    
+    return generate_response_for_model(query, session_id, llm_model, embedding_model)
+    

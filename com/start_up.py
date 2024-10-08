@@ -1,6 +1,6 @@
 import subprocess
 import os
-from com.iisc.cds.cohort7.grp11 import data_loader
+from com.iisc.cds.cohort7.grp11 import data_indexer
 from getpass import getpass
 
 def main():
@@ -12,7 +12,7 @@ def main():
     os.environ["CONFIG_PATH"] = os.path.join(os.path.dirname(__file__), "../", "config.properties")
     
     print(f"config path: { os.getenv('CONFIG_PATH')}")
-    data_loader.process_data("flax-sentence-embeddings/all_datasets_v3_MiniLM-L12", 'webscrapped')
+    data_indexer.process_data("flax-sentence-embeddings/all_datasets_v3_MiniLM-L12", 'webscrapped')
     
     #"jinaai/jina-embeddings-v2-base-zh"
 

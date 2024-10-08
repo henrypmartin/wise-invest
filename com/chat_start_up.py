@@ -1,7 +1,7 @@
-import subprocess
 import os
-from com.iisc.cds.cohort7.grp11 import rag_based_qna
+from com.iisc.cds.cohort7.grp11 import advisor_service
 from getpass import getpass
+import subprocess
 
 def main():
     
@@ -13,12 +13,18 @@ def main():
     
     print(f"config path: { os.getenv('CONFIG_PATH')}")
     
-    embedding_model = "flax-sentence-embeddings/all_datasets_v3_MiniLM-L12"
-    llm_model = "HuggingFaceH4/zephyr-7b-beta"
-    #llm_model = "QuantFactory/finance-Llama3-8B-GGUF"
+    embedding_model = "nvidia/NV-Embed-v2"
+    #llm_model = "HuggingFaceH4/zephyr-7b-beta" #working model
+    llm_model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     
-    query = "what are key highlights about nps vatsalya scheme"
-    rag_based_qna.generate_response(query, 1, llm_model, embedding_model)   
+    query = "What should be my retirement courpus to live comfortably with expected monthly income of 100000 rupees after retirement from y investments"
+    #advisor_service.generate_response(query, 1, llm_model, embedding_model)
+    
+    file_path = os.path.join(os.path.dirname(__file__), "iisc", "cds", "cohort7", "grp11", "ui", "chat_ui.py")
+    
+    print(f'File path: {file_path}')
+    
+    process = subprocess.Popen(["streamlit", "run", file_path])
 
 if __name__ == "__main__":
     main()

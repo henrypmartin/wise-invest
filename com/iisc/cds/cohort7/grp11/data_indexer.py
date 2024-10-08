@@ -12,19 +12,34 @@ from langchain_community.vectorstores.faiss import FAISS
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_core.documents import Document
 from com.iisc.cds.cohort7.grp11 import config_reader
+import shutil
 
 embedding_model_id = None
 
 def prepare_and_embed_webscrapped_data():
-    moneycontrol_extract_dir = config_reader.get_property('local', 'moneycontrol_extract_dir')
-    all_files = os.listdir(moneycontrol_extract_dir)
+    fin_articles_dir = config_reader.get_property('local', 'fin_articles_dir')
+    all_dirs = os.listdir(fin_articles_dir)
+    
+    for dir_name in all_dirs:
+        dir_name = os.path.join(fin_articles_dir, dir_name)
+        prepare_and_embed_webscrapped_data_files(dir_name)
+        
+    
+def prepare_and_embed_webscrapped_data_files(sub_dir):
+    all_files = os.listdir(sub_dir)
+    
+    print(f'Indexing: {sub_dir}')
+    
+    os.makedirs(os.path.join(sub_dir, 'indexed'), exist_ok=True) 
     
     for file_name in all_files:
         print(f'file: {file_name}')
         if file_name.endswith('.txt'):
             docs = []
             
-            with open(moneycontrol_extract_dir + "/" + file_name, 'r', encoding='utf-8') as file:
+            src_file = os.path.join(sub_dir, file_name)
+            
+            with open(src_file, 'r', encoding='utf-8') as file:
                 doc = Document(page_content=file.read(),
                                metadata={"name": file_name})                
                 
@@ -33,6 +48,8 @@ def prepare_and_embed_webscrapped_data():
             data_indexer = lambda data_index, data_splits: data_index.from_documents(data_splits)
             
             embed_data(docs, data_indexer)
+            
+            shutil.move(src_file, os.path.join(sub_dir, 'indexed' , file_name))
     
     
 def prepare_and_embed_pdf_data():
@@ -91,3 +108,7 @@ def process_data(embedding_model, data_type):
         prepare_and_embed_pdf_data()
     elif 'webscrapped' == data_type:
         prepare_and_embed_webscrapped_data()
+        
+#os.environ["CONFIG_PATH"] = "C:\\Henry\\Workspace\\wise-invest\\config.properties"
+#config_reader.load_config()
+#prepare_and_embed_webscrapped_data()

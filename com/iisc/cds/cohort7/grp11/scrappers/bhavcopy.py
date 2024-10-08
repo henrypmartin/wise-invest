@@ -51,8 +51,8 @@ end_year = datetime.now().year
 end_month = datetime.now().month
 end_date = datetime.now().day
 
-start_year = 2016
-start_month = 4
+start_year = 2024
+start_month = 10
 
 while start_year <= end_year:
     
