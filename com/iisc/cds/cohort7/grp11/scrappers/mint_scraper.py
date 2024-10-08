@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import json
 import re
 import os
-from _ast import Try
 
 # Define the URL
 base_url = 'https://www.livemint.com/topic/financial-planning/page-'
@@ -13,9 +12,10 @@ section_types = ['investing', 'insurance', 'banking/', 'financialplanning', 'exp
 # Adjust the selectors based on the HTML structure of the page
 # Assuming each name and description is in a <div> with a specific class
 
-save_path = "C:\\Henry\\Learning\\IICS_CDS_Capstone\\scrapped_data\\mint\\"
+save_path = "C:\\Henry\\Learning\\IICS_CDS_Capstone\\scrapped_data\\financial_articles\\mint\\"
 
 all_files = os.listdir(save_path)
+all_files.extend(os.listdir(save_path + "\\indexed\\"))
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36',

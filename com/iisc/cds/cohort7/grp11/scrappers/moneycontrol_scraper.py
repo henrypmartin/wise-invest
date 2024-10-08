@@ -12,9 +12,11 @@ section_types = ['investing', 'insurance', 'banking/', 'financialplanning', 'exp
 # Adjust the selectors based on the HTML structure of the page
 # Assuming each name and description is in a <div> with a specific class
 
-save_path = "C:\\Henry\\Learning\\IICS_CDS_Capstone\\scrapped_data\\moneycontrol\\"
+save_path = "C:\\Henry\\Learning\\IICS_CDS_Capstone\\scrapped_data\\financial_articles\\moneycontrol\\"
 
 all_files = os.listdir(save_path)
+
+all_files.extend(os.listdir(save_path + "\\indexed\\"))
 
 def write_to_file(name, article_body):
     filename = name[name.rfind("/") + 1 : name.rfind(".html")] + ".txt"
