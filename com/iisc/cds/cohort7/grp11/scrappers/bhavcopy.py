@@ -16,7 +16,7 @@ headers = {
     'Content-Type': 'application/x-www-form-urlencoded'
 }
 
-download_path='C:\\Henry\\Learning\\IICS_CDS_Capstone\\bhavcopies\\'
+download_path='C:\\Henry\\Learning\\IICS_CDS_Capstone\\scrapped_data\\bhavcopies\\'
 
 def download_bhavcopies(start_date, end_date):
     
@@ -59,6 +59,7 @@ while start_year <= end_year:
     while (start_year < end_year and start_month <= 12) or (start_year == end_year and start_month <= end_month):
         start_date, end_date = get_month_date_range(start_year, start_month)
         
+        print(f'Startdate: {start_date}, enddate: {end_date}')
         download_bhavcopies(start_date, end_date)
         
         start_month += 1        

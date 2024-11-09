@@ -1,0 +1,11 @@
+pip install langchain-openai
+pip install nltk
+pip install langchain_text_splitters
+pip install langchain
+pip install langgraph
+pip install streamlit
+pip install langgraph
+pip install yfinance
+pip install faiss-cpu
+pip install langchain_community
+pip install langchain_huggingface

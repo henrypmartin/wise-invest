@@ -4,7 +4,8 @@ Created on 05-Oct-2024
 @author: Henry
 '''
 import streamlit as st
-from com.iisc.cds.cohort7.grp11 import advisor_service
+#from com.iisc.cds.cohort7.grp11.advisor_service_openai import generate_response
+from com.iisc.cds.cohort7.grp11.advisor_service_huggingface import generate_response
 import random
 
 st.set_page_config(page_title="Wise-Invest")
@@ -44,15 +45,15 @@ with st.container():
             
             #chat_response = chatserver.chat_conversation(query=input_text, chatmemory=st.session_state.chatmemory)
             #chat_response = chatserver.chat_conversation(query=input_text, reload_index=st.session_state.reloadindex, session_id=st.session_state.sessionid)
-            chat_response = advisor_service.generate_response(input_text, 1)
+            chat_response = generate_response(input_text, 1)
             st.session_state.reloadindex=False
             with st.chat_message('assistant'):
-                st.markdown(chat_response['answer'])
+                st.markdown(chat_response)
                 
-                if 'doc_source' in chat_response:
-                    st.markdown('Source Reports:')
-                    st.markdown(chat_response['doc_source'])
+                #if 'doc_source' in chat_response:
+                #    st.markdown('Source Reports:')
+                #    st.markdown(chat_response['doc_source'])
             
-            st.session_state.chathistory.append({'role':'assistant', 'text': chat_response['answer']})
+            st.session_state.chathistory.append({'role':'assistant', 'text': chat_response})
           
         
