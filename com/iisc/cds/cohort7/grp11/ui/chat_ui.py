@@ -5,7 +5,7 @@ Created on 05-Oct-2024
 '''
 import streamlit as st
 #from com.iisc.cds.cohort7.grp11.advisor_service_openai import generate_response
-from com.iisc.cds.cohort7.grp11.advisor_service_huggingface import generate_response
+from com.iisc.cds.cohort7.grp11.advisor_service import generate_response
 import random
 
 st.set_page_config(page_title="Wise-Invest")
@@ -55,5 +55,3 @@ with st.container():
                 #    st.markdown(chat_response['doc_source'])
             
             st.session_state.chathistory.append({'role':'assistant', 'text': chat_response})
-          
-        
