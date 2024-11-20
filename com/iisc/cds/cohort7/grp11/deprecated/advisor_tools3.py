@@ -15,50 +15,24 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.output_parsers import StrOutputParser
-import traceback
 
 from com.iisc.cds.cohort7.grp11.stock_investment_analysis import perform_investment_analysis
-from com.iisc.cds.cohort7.grp11.stock_fundamental_analysis import perform_fundamental_analysis
 
 from langchain.agents import Tool
+from langchain.tools import StructuredTool
+
+from langchain_core.tools import tool
 
 import os
 
 #emb_model = "flax-sentence-embeddings/all_datasets_v4_MiniLM-L6"
 emb_model = "sentence-transformers/gtr-t5-large"
 os.environ["TAVILY_API_KEY"]='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'
+search = TavilySearchResults(max_results=3, include_raw_content=False,
+    include_images=False)
 
-search = TavilySearchResults(max_results=10, include_raw_content=False, include_images=False)
 
-def get_ticker(company_name):    
-    url = "https://query2.finance.yahoo.com/v1/finance/search"
-    headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36',
-    'Referer': 'https://www.google.com',
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Cache-Control": "max-age=0",
-    }
-    params = {"q": company_name, "quotes_count": 1, "country": "India"}
-
-    company_code = company_name.upper()
-    try:
-        res = requests.get(url=url, params=params, headers=headers)
-        data = res.json()
-        company_code = data['quotes'][0]['symbol']
-    except:
-        traceback.print_exc()
-        
-    return company_code
-        
-def process_mutual_fund_queries(user_query: str) -> str:
+def process_mutual_fund_queries_1(user_query: str) -> str:
     '''  Tool to answer any queries related to mutual funds '''
     
     print(f'process_mutual_fund_queries args: {user_query}')
@@ -77,12 +51,13 @@ def process_mutual_fund_queries(user_query: str) -> str:
     
     return ' '.join(search_data) 
 
-process_mutual_fund_queries_1 = Tool(
+process_mutual_fund_queries = StructuredTool.from_function(
     name='Mutual_funds_queries_answering_tool',
-    func= process_mutual_fund_queries,
+    func= process_mutual_fund_queries_1,
     description="Tool to answer any queries related to mutual funds"
 )
     
+@tool
 def process_generic_queries(user_query: str) -> str:
     ''' Returns responses to generic user queries based on the web 
     search'''
@@ -103,49 +78,43 @@ def process_generic_queries(user_query: str) -> str:
     
     return ' '.join(search_data)     
 
-def calculate_stock_investment_returns(ticker: str, invested_date: str, invested_amount: int) -> str:
+
+def calculate_stock_investment_returns_1(ticker: str, invested_date: str, invested_amount: int) -> str:
     ''' Tool to answer any queries related to current value of invested amount in stocks and investment date in the past.
         Args:
-            ticker: the ticker symbol for listed Indian company in the form as expected by Yahoo finance API eg INFY.NS for Infosys limited
+            ticker: the ticker symbol for listed Indian company
             invested_date: invested date in YYYY-mm-dd format 
-            invested_amount: invested amount.'''
+            invested_amount: invested amount'''
     
     print(f'calculate_investment_returns args: {ticker} {invested_date} {invested_amount}')
     
-    ticker = get_ticker(ticker)
-    print(f'Ticker from YahooFinance API: {ticker}')
-    data = perform_investment_analysis(ticker, invested_date, invested_amount)
+    #data = perform_investment_analysis(ticker, invested_date, investement_amount)
     
-    return data
-    #return f"If you had invested ₹100,000 in {ticker} on November 13, 2023, the current value on November 13, 2024, would be:\n\n- ₹107,457 if dividends were not reinvested.\n- ₹114,954 if dividends were reinvested.\n\nThe total dividend amount received would be ₹430, and the compound annual growth rate (CAGR) would be 7.44%."
+    #return data
+    return f"If you had invested ₹100,000 in {ticker} on November 13, 2023, the current value on November 13, 2024, would be:\n\n- ₹107,457 if dividends were not reinvested.\n- ₹114,954 if dividends were reinvested.\n\nThe total dividend amount received would be ₹430, and the compound annual growth rate (CAGR) would be 7.44%."
     
  
-calculate_stock_investment_returns_1 = Tool(
+calculate_stock_investment_returns = StructuredTool.from_function(
     name='stock_investment_current_value_queries_answering_tool',
-    func= calculate_stock_investment_returns,
+    func= calculate_stock_investment_returns_1,
     description="""Tool to answer any queries related to current value of invested amount in stocks and investment date in the past.
-                   Arguments is ticker symbol, investment date and investment amount"""
+                Args:
+                    ticker: the ticker symbol for listed Indian company
+                    invested_date: invested date in YYYY-mm-dd format 
+                    invested_amount: invested amount"""
 )
 
-def process_stock_fundamentals_queries(user_query: str, ticker: str) -> str:
-    ''' Tool to answer queries related to any fundamentals of listed companies in India.
-        Args:
-            user_query: question including the company name as understood by 5paisa.com
-            ticker: the ticker symbol for listed Indian company in the form as expected by Yahoo finance API eg INFY.NS for Infosys limited"
-     '''
+
+def process_company_queries_1(user_query: str) -> str:
+    ''' Tool to answer queries related to any listed companies in India '''
     
-    print(f'process_stock_fundamentals_queries args: {user_query} {ticker}')
+    print(f'process_stock_queries args: {user_query}')
     
-    search.include_domains = ["www.5paisa.com"]
-    #search.include_domains = ["screener.in", "economictimes.indiatimes.com", "in.investing.com", "moneycontrol.com"]
+    search.include_domains = ["economictimes.indiatimes.com", "in.investing.com", "moneycontrol.com"]
     #data_df = yf.download(ticker, period=period)
     #output = search.invoke(f'{ticker} and {period}')
     invoke_op = search.invoke(user_query)
-    print(f'process_company_queries output: {invoke_op}')
-    
-    analysis = perform_fundamental_analysis(ticker)
-    
-    search_data = [analysis]
+    search_data = []
     for op in invoke_op:
         search_data.append(op['content'])
         print(f"{op['url']} == {op['content']}")        
@@ -155,42 +124,13 @@ def process_stock_fundamentals_queries(user_query: str, ticker: str) -> str:
     
     return ' '.join(search_data) 
 
-def process_company_queries(user_query: str, ticker: str) -> str:
-    ''' Tool to answer queries related to any listed companies in India.
-        Args:
-            user_query: question including the company name as understood by 5paisa.com
-            ticker: the ticker symbol for listed Indian company in the form as expected by Yahoo finance API eg INFY.NS for Infosys limited"
-     '''
-    
-    print(f'process_company_queries args: {user_query} {ticker}')
-    
-    search.include_domains = ["www.5paisa.com"]
-    #search.include_domains = ["screener.in", "economictimes.indiatimes.com", "in.investing.com", "moneycontrol.com"]
-    #data_df = yf.download(ticker, period=period)
-    #output = search.invoke(f'{ticker} and {period}')
-    invoke_op = search.invoke(user_query)
-    print(f'process_company_queries output: {invoke_op}')
-    
-    ticker = get_ticker(ticker)
-    print(f'Ticker from YahooFinance API: {ticker}')
-    analysis = perform_fundamental_analysis(ticker)
-    
-    search_data = [analysis]
-    for op in invoke_op:
-        search_data.append(op['content'])
-        print(f"{op['url']} == {op['content']}")        
-    
-    #print(data_df)
-    #print(type(data_df))
-    
-    return ' '.join(search_data) 
-
-process_company_queries_1 = Tool(
+process_company_queries = StructuredTool.from_function(
     name='company_related_queries_answering_tool',
-    func= process_company_queries,
+    func= process_company_queries_1,
     description="Tool to answer queries related to any listed companies in India"
 )
 
+@tool
 def get_historic_stock_data(user_input: str, period:str) -> str:
     ''' Returns historic stock data for given ticker and period.
     Eg for period is 1Y, 2Y, 5Y etc or could be date in yyyy-mm-dd format'''
@@ -219,7 +159,6 @@ template = (
     "Remove any prefix from the amount indicating currency code"
     "Prefix any amount with invested_amount:"
     "Prefix any date with invested_date:"
-    "use the data from reformatted query as arguments to appropriate tools"
     "Do not ask to reformulate again in the generated query"
     "if you are not able to reformulate, please pass the query as is"
     "Question: {orig_usr_query}"    
@@ -249,7 +188,8 @@ class WebSearchRetriever(Runnable[str, list[Document]]):
         
         #response = self.agent_executor.invoke({"input": reformulated_query})
         #response = self.agent_executor.invoke({"input": [HumanMessage(content=reformulated_query)]})        
-        response = self.agent_executor.invoke({"messages": [HumanMessage(content=reformulated_query)]})
+        #response = self.agent_executor.invoke({"messages": [HumanMessage(content=reformulated_query)]})
+        response = self.agent_executor.invoke({"messages": reformulated_query})
         
         print(f'responses from react agent {response}')
         #origdocs = self.base_retriever.invoke(input, config, **kwargs)
@@ -276,9 +216,7 @@ class WebSearchRetriever(Runnable[str, list[Document]]):
         
         print(docs)
         
-        
         #print(f"retrieved docs {retrieved_docs}")
         #docs.extend(origdocs)
                 
-        #return retrieved_docs
         return docs

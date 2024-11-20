@@ -7,51 +7,105 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 import numpy as np
+import traceback
+import threading
 
-def perform_investment_analysis(ticker, start_date, investment_amount):    
+yahoo_finance_api_lock = threading.Lock()
 
-    print(f'Loading data for {ticker}')
-    curr_price_data = yf.download(ticker, period='1d')
+def perform_investment_analysis(ticker, start_date, investment_amount):
     
-    curr_share_price = curr_price_data.Low.iloc[0]
-    
-    price_data, stk_splits, divs = load_stock_data(ticker, start_date)
-    
-    if price_data is None:
-        return -1, -1, -1, -1
-    
-    divs['Date'] = divs['Date'].dt.tz_localize(None)
-    price_data['Date'] = price_data['Date'].dt.tz_localize(None)
-    stk_splits['Date'] = stk_splits['Date'].dt.tz_localize(None)
-    
-    print("getting original purchase shares")
-    orig_purchase_shares = get_initial_shares_count(investment_amount, stk_splits, price_data)
-    
-    print("Adjust for splits and bonus")
-    get_split_and_bonus_adjusted_shares_count(stk_splits, orig_purchase_shares)
-    
-    if stk_splits.empty:
-        current_shares_count = orig_purchase_shares
-    else:
-        current_shares_count = stk_splits['shares_count'].tail(1).values[0]
-    
-    print("Get total dividends")
-    total_dividend_received = get_total_dividend_amt(divs, current_shares_count)
-    
-    #Current market value without reinvesting dividend
-    mkt_val_wo_div_reinv = curr_share_price * current_shares_count
-    
-    print("Get dividend reinvested shares")
-    div_reinvest_stks_cnt = get_dividend_reinvested_shares(ticker, price_data, divs, stk_splits)
-    
-    #Current market value after reinvesting dividend
-    mkt_val_wt_div_reinv = curr_share_price * (current_shares_count + div_reinvest_stks_cnt)
-    
-    cagr = calculate_cagr(investment_amount, mkt_val_wo_div_reinv, start_date)
-    
-    #return np.round(mkt_val_wo_div_reinv), np.round(mkt_val_wt_div_reinv), np.round(total_dividend_received), cagr
-    return f'{investment_amount} invested in {ticker} would have been {mkt_val_wo_div_reinv} (if dividend not reinvested) \
-          and {mkt_val_wt_div_reinv} (if dividend reinvested). Total dividend amount received {total_dividend_received}. CAGR returns {cagr}'
+    returns_summary = 'Error getting data. Please try again later'
+    try:        
+        yahoo_finance_api_lock.acquire()
+        print(f'Loading data for {ticker}')
+        
+        curr_price_data = yf.download(ticker, period='1d')
+        
+        curr_share_price = curr_price_data.Low.iloc[0]
+        
+        print(f'Current price for {ticker} is {curr_share_price}')
+        price_data, stk_splits, divs = load_stock_data(ticker, start_date)
+        
+        print(f'{ticker}: Price Data: \n{price_data}')
+        print(f'{ticker}: Stock splits: \n{stk_splits}')
+        print(f'{ticker}: Dividends: \n{divs}')
+        
+        if price_data is None:
+            return -1, -1, -1, -1
+        
+        divs['Date'] = divs['Date'].dt.tz_localize(None)
+        price_data['Date'] = price_data['Date'].dt.tz_localize(None)
+        stk_splits['Date'] = stk_splits['Date'].dt.tz_localize(None)
+        
+        print("getting original purchase shares")
+        orig_purchase_price, orig_purchase_shares, split_or_bonus_shares = get_initial_shares_count(investment_amount, stk_splits, price_data)
+        
+        print(f'{ticker}: Original purchase shares count: {orig_purchase_shares}')
+        print(f'{ticker}: Adjusted price: \n{price_data.High.iloc[0]}')
+        print(f'{ticker}: Split or Bonus Shares?: \n{split_or_bonus_shares}')
+        
+        print("Adjust for splits and bonus")
+        get_split_and_bonus_adjusted_shares_count(stk_splits, orig_purchase_shares)
+        
+        print(f'{ticker}: Share count: \n{stk_splits.head()}')
+            
+        if stk_splits.empty:
+            current_shares_count = orig_purchase_shares
+        else:
+            current_shares_count = stk_splits['shares_count'].tail(1).values[0]
+        
+        print("Get total dividends")
+        total_dividend_received = get_total_dividend_amt(divs, current_shares_count)
+        print(f'{ticker}: total dividend received: \n{total_dividend_received}')
+        
+        #Current market value without reinvesting dividend
+        mkt_val_wo_div_reinv = curr_share_price * current_shares_count
+        mkt_val_wo_div_reinv = np.round(mkt_val_wo_div_reinv.values[0], 2)
+        #print(type(mkt_val_wo_div_reinv))
+        #print(dir(mkt_val_wo_div_reinv))
+        
+        print("Get dividend reinvested shares")
+        div_reinvest_stks_cnt = get_dividend_reinvested_shares(ticker, price_data, divs, stk_splits)
+        
+        #Current market value after reinvesting dividend
+        mkt_val_wt_div_reinv = curr_share_price * (current_shares_count + div_reinvest_stks_cnt)
+        
+        mkt_val_wt_div_reinv = np.round(mkt_val_wt_div_reinv, 2)
+        
+        cagr = calculate_cagr(investment_amount, mkt_val_wo_div_reinv, start_date)
+        cagr_div_reinv = calculate_cagr(investment_amount, mkt_val_wt_div_reinv, start_date)
+        
+        ca_adj_purchase_price_details = ''
+        if split_or_bonus_shares:
+            ca_adj_purchase_price_details = f'(split/bonus adjusted purchase price: {np.round(price_data.High.iloc[0].values[0], 2)} )' 
+        
+        orig_purchase_price = np.round(orig_purchase_price.values[0], 2)
+        curr_share_price = np.round(curr_share_price.values[0], 2)
+        
+        if div_reinvest_stks_cnt > 0 :
+            returns_summary = f'''{investment_amount} invested in {ticker} would have been 
+                {mkt_val_wo_div_reinv}(if dividend not reinvested, current no. of shares {current_shares_count}) and 
+                {mkt_val_wt_div_reinv} (if dividend reinvested, current no. of shares {current_shares_count}).
+                Total dividend amount received {total_dividend_received}.  
+                CAGR returns of {cagr} (if dividend not reinvested) and
+                {cagr_div_reinv} (if dividend reinvested).
+                Purchase Price: {orig_purchase_price} {ca_adj_purchase_price_details}
+                Current Price: {curr_share_price}'''
+        else:
+            returns_summary = f'''{investment_amount} invested in {ticker} would have been 
+                {mkt_val_wo_div_reinv}(current no. of shares {current_shares_count}).
+                Total dividend amount received {total_dividend_received}.  
+                CAGR returns of {cagr}.
+                Purchase Price: {orig_purchase_price} {ca_adj_purchase_price_details}
+                Current Price: {curr_share_price}'''
+        
+        print(returns_summary)
+    except:
+        print(f'Exception occurred while getting investment returns.')
+        traceback.print_exc()
+
+    yahoo_finance_api_lock.release()
+    return returns_summary
 
 
 def load_stock_data(ticker, start_date):
@@ -96,9 +150,9 @@ def get_initial_shares_count(investment_amt, stk_splits, price_data):
     
     orig_purchase_shares = int(investment_amt / purchase_price)
     
-    print(f'{purchase_price} {orig_purchase_shares}')
-    
-    return orig_purchase_shares
+    split_or_bonus_shares = ca_adj_purchase_price != purchase_price
+        
+    return purchase_price, orig_purchase_shares, split_or_bonus_shares.values[0]
 
 def get_split_and_bonus_adjusted_shares_count(stk_splits, orig_purchase_shares):
 
@@ -116,8 +170,7 @@ def get_split_and_bonus_adjusted_shares_count(stk_splits, orig_purchase_shares):
     # For the rest of the rows, multiply by the previous value in the new column
     for i in range(1, len(stk_splits)):
         stk_splits.loc[i, 'shares_count'] = stk_splits['shares_count'].iloc[i-1] * stk_splits.loc[i, 'Stock Splits']
-    
-    stk_splits.head(5)
+        
     
 def get_total_dividend_amt(divs, current_shares_count):
     # Initialize the new column with NaN values
@@ -141,7 +194,7 @@ def get_dividend_reinvested_shares(ticker, price_data, divs, stk_splits):
     div_reinvest_stks_cnt = 0
     prev_div_date = price_data['Date'].iloc[0]
     
-    print(f'Previous div date {prev_div_date}')
+    print(f'{ticker}: Previous div date \n{prev_div_date}')
     
     #divs['Date'] = divs['Date'].dt.tz_localize(None)
     
@@ -153,14 +206,14 @@ def get_dividend_reinvested_shares(ticker, price_data, divs, stk_splits):
         stk_price = stk_price.reset_index()
         stk_splits_post_divs = stk_splits[stk_splits['Date'] > div_dt]
         
-        print(f"Stock split post divs: {stk_splits_post_divs}")
+        print(f"Stock split post divs: \n{stk_splits_post_divs}")
         split_ratio = stk_splits_post_divs['Stock Splits'].product()
         
         actual_stk_price = stk_price["High"].iloc[0] * split_ratio
         
         print(f'Adjusted stock price {stk_price["High"].iloc[0]} and actual price {actual_stk_price} on date {stk_price["Date"].iloc[0]}')
         
-        div_reinvest_stks_cnt += int(actual_stk_price/div_amt)
+        div_reinvest_stks_cnt += int(div_amt/actual_stk_price)
         
         stk_splits['Date'] = stk_splits['Date'].dt.tz_localize(None)
         
@@ -193,3 +246,5 @@ def calculate_cagr(beginning_value, ending_value, start_date):
 
     cagr = (ending_value / beginning_value) ** (1 / years) - 1
     return np.round(cagr * 100, 2)
+
+#print(perform_investment_analysis("INFY.NS", "2021-11-16", 100000))

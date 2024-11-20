@@ -5,7 +5,9 @@ Created on 05-Oct-2024
 '''
 import streamlit as st
 #from com.iisc.cds.cohort7.grp11.advisor_service_openai import generate_response
-from com.iisc.cds.cohort7.grp11.advisor_service import generate_response
+#from com.iisc.cds.cohort7.grp11.advisor_service import generate_response
+from com.iisc.cds.cohort7.grp11.advisor_service_direct_agent import generate_response
+
 import random
 
 st.set_page_config(page_title="Wise-Invest")

@@ -1,6 +1,6 @@
 import subprocess
 import os
-from com.iisc.cds.cohort7.grp11 import data_indexer
+from com.iisc.cds.cohort7.grp11.deprecated import data_indexer
 from getpass import getpass
 
 #hfapi_key = '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' #getpass("Enter you HuggingFace access token:")
