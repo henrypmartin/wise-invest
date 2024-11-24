@@ -16,7 +16,7 @@ from sentence_transformers import util
 from com.iisc.cds.cohort7.grp11 import config_reader
 import traceback
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from com.iisc.cds.cohort7.grp11.advisor_service import contextualize_q_prompt, qa_prompt, get_response
+from com.iisc.cds.cohort7.grp11.deprecated.advisor_service import contextualize_q_prompt, qa_prompt, get_response
 
 import os
 

@@ -21,7 +21,7 @@ from typing_extensions import Annotated, TypedDict
 import os
 
 from com.iisc.cds.cohort7.grp11.deprecated.advisor_service_huggingface import HuggingFaceAdvisorService
-from com.iisc.cds.cohort7.grp11.advisor_service_openai import OpenAIAdvisorService
+from com.iisc.cds.cohort7.grp11.deprecated.advisor_service_openai import OpenAIAdvisorService
 
 rag_chain = None
 

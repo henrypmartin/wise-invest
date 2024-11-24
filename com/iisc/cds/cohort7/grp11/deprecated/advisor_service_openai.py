@@ -5,7 +5,7 @@ Created on 03-Sep-2024
 '''
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores.faiss import FAISS
-from langchain_huggingface import HuggingFaceEndpointEmbeddings, HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
 from com.iisc.cds.cohort7.grp11 import config_reader
 

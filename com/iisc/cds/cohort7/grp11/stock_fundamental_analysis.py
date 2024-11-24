@@ -9,7 +9,9 @@ import traceback
 
 import pandas as pd
 import yfinance as yf
+import logging
 
+logger = logging.getLogger(__name__)
 
 yahoo_finance_api_lock = threading.Lock()
 
@@ -21,14 +23,18 @@ def perform_fundamental_analysis(ticker):
     returns_summary = 'Error getting data. Please try again later'
     try:        
         yahoo_finance_api_lock.acquire()
-        print(f'Loading data for {ticker}')
+        logger.info(f'Loading data for {ticker}')
         
         returns_summary = load_stock_data(ticker)
     except:
-        traceback.print_exc()
+        logger.error(f"Error occurred while processing request: {traceback.format_exc()}")
     
     yahoo_finance_api_lock.release()
     return returns_summary
+
+def print_stock_details(data, data_type):
+    print(f'*****************************{data_type}******************************************')
+    print(data)
 
 def load_stock_data(ticker):
 
@@ -75,19 +81,38 @@ def load_stock_data(ticker):
     merged_df = pd.concat([balance_sheet, cash_flow, financials])
     merged_df.columns = merged_df.columns.astype(str)
     
-    #print_stock_details(merged_df, 'nsetick.financials')
+    financials = nsetick.financials
+    #financials = financials.reset_index()
+    
+    #print_stock_details(financials, 'nsetick.financials')
     
     df = pd.DataFrame()
-    financial_data = {        
-        "Net Profit Margin": (nsetick.financials.loc["Net Income"] / nsetick.financials.loc["Total Revenue"])[:3] * 100,
-        "Operating Margin": (nsetick.financials.loc["Operating Income"] / nsetick.financials.loc["Total Revenue"])[:3] * 100,
-        "Return on Equity": (nsetick.financials.loc["Net Income"] / nsetick.balance_sheet.loc["Stockholders Equity"])[:3] * 100,
-        "Return on Assets": (nsetick.financials.loc["Net Income"] / nsetick.balance_sheet.loc["Total Assets"])[:3] * 100,
-        "Current Ratio": (nsetick.balance_sheet.loc["Current Assets"] / nsetick.balance_sheet.loc["Current Liabilities"])[:3],
-        "Debt-to-Equity Ratio": (nsetick.balance_sheet.loc["Total Debt"] / nsetick.balance_sheet.loc["Stockholders Equity"])[:3],
-        "Interest Coverage Ratio": (nsetick.financials.loc["Operating Income"] / nsetick.financials.loc["Interest Expense"])[:3]
-    }
-        
+    financial_data = {}
+    
+    #print(f'Location: {financials.index}')
+    #print(f'Location: {"Net Income" in financials.index}')
+    
+    if "Net Income" in financials.index and "Total Revenue" in financials.index:
+        financial_data["Net Profit Margin"] = (financials.loc["Net Income"] / financials.loc["Total Revenue"])[:3] * 100
+    
+    if "Operating Income" in financials.index and "Total Revenue" in financials.index:
+        financial_data["Operating Margin"] = (financials.loc["Operating Income"] / financials.loc["Total Revenue"])[:3] * 100
+    
+    if "Net Income" in financials.index and "Stockholders Equity" in nsetick.balance_sheet.index:
+        financial_data["Return on Equity"] = (financials.loc["Net Income"] / nsetick.balance_sheet.loc["Stockholders Equity"])[:3] * 100
+    
+    if "Net Income" in financials.index and "Total Assets" in nsetick.balance_sheet.index:
+        financial_data["Return on Assets"] = (financials.loc["Net Income"] / nsetick.balance_sheet.loc["Total Assets"])[:3] * 100
+    
+    if "Current Assets" in financials.index and "Current Liabilities" in nsetick.balance_sheet.index:
+        financial_data["Current Ratio"] = (nsetick.balance_sheet.loc["Current Assets"] / nsetick.balance_sheet.loc["Current Liabilities"])[:3]
+    
+    if "Total Debt" in financials.index and "Stockholders Equity" in nsetick.balance_sheet.index:
+        financial_data["Debt-to-Equity Ratio"] = (nsetick.balance_sheet.loc["Total Debt"] / nsetick.balance_sheet.loc["Stockholders Equity"])[:3]
+    
+    if "Operating Income" in financials.index and "Interest Expense" in financials.index:
+        financial_data["Interest Coverage Ratio"] = (financials.loc["Operating Income"] / financials.loc["Interest Expense"])[:3]
+            
     for key, value in financial_data.items():
         dic = {}
         for tup in value.items():
@@ -105,7 +130,7 @@ def load_stock_data(ticker):
         }
     
     analysis = json.dumps(result, indent=4)
-    print(f'Fundamental analysis details for {ticker} is {analysis}')
+    logger.info(f'Fundamental analysis details for {ticker} is {analysis}')
     #print(analysis)
     #print((nsetick.financials.loc["Net Income"] / nsetick.financials.loc["Total Revenue"])[:3])
     return analysis
@@ -120,4 +145,4 @@ def load_stock_data(ticker):
     #print_stock_details(nsetick.recommendations_summary, 'nsetick.recommendations_summary')
     #print_stock_details(nsetick.splits, 'nsetick.splits')
 
-#print(perform_fundamental_analysis("BALAMINES.NS"))
+#print(perform_fundamental_analysis("FINOLEXIND.BO"))

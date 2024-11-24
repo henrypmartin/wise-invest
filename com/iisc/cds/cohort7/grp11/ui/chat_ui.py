@@ -4,11 +4,8 @@ Created on 05-Oct-2024
 @author: Henry
 '''
 import streamlit as st
-#from com.iisc.cds.cohort7.grp11.advisor_service_openai import generate_response
-#from com.iisc.cds.cohort7.grp11.advisor_service import generate_response
-from com.iisc.cds.cohort7.grp11.advisor_service_direct_agent import generate_response
 
-import random
+from com.iisc.cds.cohort7.grp11.advisor_service_direct_agent import generate_response
 
 st.set_page_config(page_title="Wise-Invest")
 
@@ -24,7 +21,7 @@ for message in st.session_state.chathistory:
         st.markdown(message['text'])
 
 input_text = st.chat_input("I am your personal financial advisor. How can I help you today?")
-
+               
 if 'fileids' not in st.session_state:
     st.session_state.fileids = []
 
@@ -45,8 +42,6 @@ with st.container():
             
             st.session_state.chathistory.append({'role':'user', 'text': input_text})
             
-            #chat_response = chatserver.chat_conversation(query=input_text, chatmemory=st.session_state.chatmemory)
-            #chat_response = chatserver.chat_conversation(query=input_text, reload_index=st.session_state.reloadindex, session_id=st.session_state.sessionid)
             chat_response = generate_response(input_text, 1)
             st.session_state.reloadindex=False
             with st.chat_message('assistant'):

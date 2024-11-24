@@ -3,30 +3,19 @@ Created on 11-Nov-2024
 
 @author: Henry Martin
 '''
-from langchain_core.tools import BaseTool
-import requests
-import yfinance as yf
-
-from langchain_core.messages.tool import ToolCall
-from typing import Optional, Any, Union
-import json
-from langchain_core.runnables import Runnable, RunnableConfig
-from langchain_core.documents import Document
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_core.output_parsers import StrOutputParser
 import traceback
+import requests
+import asyncio
+
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 from com.iisc.cds.cohort7.grp11.stock_investment_analysis import perform_investment_analysis
 from com.iisc.cds.cohort7.grp11.stock_fundamental_analysis import perform_fundamental_analysis
+from com.iisc.cds.cohort7.grp11.mf_analysis import perform_mutual_fund_analysis
+from com.iisc.cds.cohort7.grp11.portfolio_allocator import run_portfolio_allocator
+import logging
 
-from langchain.agents import Tool
-
-import os
-
-#emb_model = "flax-sentence-embeddings/all_datasets_v4_MiniLM-L6"
-emb_model = "sentence-transformers/gtr-t5-large"
-os.environ["TAVILY_API_KEY"]='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'
+logger = logging.getLogger(__name__)
 
 search = TavilySearchResults(max_results=10, include_raw_content=False, include_images=False)
 
@@ -52,36 +41,62 @@ def get_ticker(company_name):
     try:
         res = requests.get(url=url, params=params, headers=headers)
         data = res.json()
-        company_code = data['quotes'][0]['symbol']
+        logger.info(f'Get ticket details: {data}')
+        if len(data['quotes']) > 0:
+            for stk_quote in data['quotes']:
+                if stk_quote['exchange'] in ['NSI', 'BSE'] and stk_quote['isYahooFinance'] and stk_quote['longname'].find('IDCW') < 0:
+                    company_code = stk_quote['symbol']
+                    break
     except:
-        traceback.print_exc()
+        logger.error(f"Error occurred while processing request: {traceback.format_exc()}")
         
     return company_code
-        
-def process_mutual_fund_queries(user_query: str) -> str:
-    '''  Tool to answer any queries related to mutual funds '''
+
+def process_specific_mutual_fund_queries(mf_name: str, mf_ticker: str) -> str:
+    '''  Tool to answer any queries related to specific mutual funds. This tool will be used when the query has mutual fund name in it.
+        The output from process_generic_mutual_fund_queries with mutual fund names as expected by Yahoo finance API can be passed as input to this tool
+        Args:
+            mf_name: the mutual fund name as expected by Yahoo finance API
+            mf_ticker: the mutual fund ticker symbol in the form as expected by Yahoo finance API eg xxxxxxxxxx.BO
+            '''
     
-    print(f'process_mutual_fund_queries args: {user_query}')
+    logger.info(f'process_specific_mutual_fund_queries args: {mf_name}; {mf_ticker}')
     
     search.include_domains = ["www.valueresearchonline.com"]
-    #data_df = yf.download(ticker, period=period)
-    #output = search.invoke(f'{ticker} and {period}')
-    invoke_op = search.invoke(user_query)
-    search_data = []
+    
+    invoke_op = search.invoke(mf_name)
+    
+    analysis = perform_mutual_fund_analysis(mf_name, mf_ticker)
+    
+    search_data = [analysis]
     for op in invoke_op:
         search_data.append(op['content'])
-        print(f"{op['url']} == {op['content']}")        
-    
-    #print(data_df)
-    #print(type(data_df))
+        logger.info(f"{op['url']} == {op['content']}")        
     
     return ' '.join(search_data) 
 
-process_mutual_fund_queries_1 = Tool(
-    name='Mutual_funds_queries_answering_tool',
-    func= process_mutual_fund_queries,
-    description="Tool to answer any queries related to mutual funds"
-)
+def process_generic_mutual_fund_queries(user_query: str) -> str:
+    '''  Tool to answer any generic queries related to mutual funds when user query does not have any specific mutual fund name in it.
+        Also make calls to process_specific_mutual_fund_queries to get most accurate results
+        Args:
+            user_query: question on mutual funds including the mutual fund name as understood by Yahoo finance
+            '''
+    
+    logger.info(f'process_generic_mutual_fund_queries args: {user_query}')
+    
+    search.include_domains = ["www.valueresearchonline.com"]
+    
+    invoke_op = search.invoke(user_query)
+    
+    #analysis = perform_mutual_fund_analysis(mf_name, mf_ticker)
+    
+    #search_data = [analysis]
+    search_data = []
+    for op in invoke_op:
+        search_data.append(op['content'])
+        logger.info(f"{op['url']} == {op['content']}")        
+    
+    return ' '.join(search_data) 
     
 def process_generic_queries(user_query: str) -> str:
     ''' Returns responses to generic user queries based on the web 
@@ -89,43 +104,32 @@ def process_generic_queries(user_query: str) -> str:
     
     #search.include_domains = ["morningstar.in"]
     
-    print(f'process_generic_queries args: {user_query} ')
+    logger.info(f'process_generic_queries args: {user_query} ')
     
     invoke_op = search.invoke(user_query)
     search_data = []
     for op in invoke_op:
         search_data.append(op['content'])
-        print(f"{op['url']} == {op['content']}")
-        print('7777777777777777777777777777777777777777777')
-    
-    #print(data_df)
-    #print(type(data_df))
+        logger.info(f"{op['url']} == {op['content']}")
+        logger.info('7777777777777777777777777777777777777777777')
     
     return ' '.join(search_data)     
 
-def calculate_stock_investment_returns(ticker: str, invested_date: str, invested_amount: int) -> str:
+def calculate_stock_investment_returns(company_name: str, ticker: str, invested_date: str, invested_amount: int=100000) -> str:
     ''' Tool to answer any queries related to current value of invested amount in stocks and investment date in the past.
         Args:
+            company_name: company name of listed Indian company
             ticker: the ticker symbol for listed Indian company in the form as expected by Yahoo finance API eg INFY.NS for Infosys limited
             invested_date: invested date in YYYY-mm-dd format 
             invested_amount: invested amount.'''
     
-    print(f'calculate_investment_returns args: {ticker} {invested_date} {invested_amount}')
+    logger.info(f'calculate_investment_returns args: {company_name}; {ticker}; {invested_date}; {invested_amount}')
     
-    ticker = get_ticker(ticker)
-    print(f'Ticker from YahooFinance API: {ticker}')
+    ticker = get_ticker(company_name)
+    logger.info(f'Ticker from YahooFinance API: {ticker}')
     data = perform_investment_analysis(ticker, invested_date, invested_amount)
     
     return data
-    #return f"If you had invested ₹100,000 in {ticker} on November 13, 2023, the current value on November 13, 2024, would be:\n\n- ₹107,457 if dividends were not reinvested.\n- ₹114,954 if dividends were reinvested.\n\nThe total dividend amount received would be ₹430, and the compound annual growth rate (CAGR) would be 7.44%."
-    
- 
-calculate_stock_investment_returns_1 = Tool(
-    name='stock_investment_current_value_queries_answering_tool',
-    func= calculate_stock_investment_returns,
-    description="""Tool to answer any queries related to current value of invested amount in stocks and investment date in the past.
-                   Arguments is ticker symbol, investment date and investment amount"""
-)
 
 def process_stock_fundamentals_queries(user_query: str, ticker: str) -> str:
     ''' Tool to answer queries related to any fundamentals of listed companies in India.
@@ -134,151 +138,75 @@ def process_stock_fundamentals_queries(user_query: str, ticker: str) -> str:
             ticker: the ticker symbol for listed Indian company in the form as expected by Yahoo finance API eg INFY.NS for Infosys limited"
      '''
     
-    print(f'process_stock_fundamentals_queries args: {user_query} {ticker}')
+    logger.info(f'process_stock_fundamentals_queries args: {user_query}; {ticker}')
     
     search.include_domains = ["www.5paisa.com"]
-    #search.include_domains = ["screener.in", "economictimes.indiatimes.com", "in.investing.com", "moneycontrol.com"]
-    #data_df = yf.download(ticker, period=period)
-    #output = search.invoke(f'{ticker} and {period}')
+    
     invoke_op = search.invoke(user_query)
-    print(f'process_company_queries output: {invoke_op}')
+    logger.info(f'process_company_queries output: {invoke_op}')
     
     analysis = perform_fundamental_analysis(ticker)
     
     search_data = [analysis]
     for op in invoke_op:
         search_data.append(op['content'])
-        print(f"{op['url']} == {op['content']}")        
-    
-    #print(data_df)
-    #print(type(data_df))
+        logger.info(f"{op['url']} == {op['content']}")        
     
     return ' '.join(search_data) 
 
-def process_company_queries(user_query: str, ticker: str) -> str:
+def process_company_queries(user_query: str, company_name: str, ticker: str) -> str:
     ''' Tool to answer queries related to any listed companies in India.
         Args:
             user_query: question including the company name as understood by 5paisa.com
+            company_name: company name of listed Indian company
             ticker: the ticker symbol for listed Indian company in the form as expected by Yahoo finance API eg INFY.NS for Infosys limited"
      '''
     
-    print(f'process_company_queries args: {user_query} {ticker}')
+    logger.info(f'process_company_queries args: {user_query}; {company_name}; {ticker}')
     
     search.include_domains = ["www.5paisa.com"]
-    #search.include_domains = ["screener.in", "economictimes.indiatimes.com", "in.investing.com", "moneycontrol.com"]
-    #data_df = yf.download(ticker, period=period)
-    #output = search.invoke(f'{ticker} and {period}')
-    invoke_op = search.invoke(user_query)
-    print(f'process_company_queries output: {invoke_op}')
     
-    ticker = get_ticker(ticker)
-    print(f'Ticker from YahooFinance API: {ticker}')
+    invoke_op = search.invoke(user_query)
+    logger.info(f'process_company_queries output: {invoke_op}')
+    
+    ticker = get_ticker(company_name)
+    logger.info(f'Ticker from YahooFinance API: {ticker}')
     analysis = perform_fundamental_analysis(ticker)
     
     search_data = [analysis]
     for op in invoke_op:
         search_data.append(op['content'])
-        print(f"{op['url']} == {op['content']}")        
-    
-    #print(data_df)
-    #print(type(data_df))
+        logger.info(f"{op['url']} == {op['content']}")        
     
     return ' '.join(search_data) 
-
-process_company_queries_1 = Tool(
-    name='company_related_queries_answering_tool',
-    func= process_company_queries,
-    description="Tool to answer queries related to any listed companies in India"
-)
 
 def get_historic_stock_data(user_input: str, period:str) -> str:
     ''' Returns historic stock data for given ticker and period.
     Eg for period is 1Y, 2Y, 5Y etc or could be date in yyyy-mm-dd format'''
     
-    print(f'get_historic_stock_data args: {user_input} and {period}')
+    logger.info(f'get_historic_stock_data args: {user_input} and {period}')
     
     #search.include_domains = [f"https://www.google.com"]
     #data_df = yf.download(ticker, period=period)
     #output = search.invoke(f'{ticker} and {period}')
     output = search.invoke(f'{user_input} stock price {period}')
     
-    print(output)
+    logger.info(output)
     
     #print(data_df)
     #print(type(data_df))
     
     return f'Input details are {user_input} and {user_input}' 
 
-from langchain_core.prompts.chat import ChatPromptTemplate
-
-template = (
-    "You are a financial advisor system to provide financial advice"
-    "reformulate the given question to yield better results"
-    "using base date as {base_date}, "
-    "calculate correct dates in User query with temporal semantics eg one year ago today"
-    "Remove any prefix from the amount indicating currency code"
-    "Prefix any amount with invested_amount:"
-    "Prefix any date with invested_date:"
-    "use the data from reformatted query as arguments to appropriate tools"
-    "Do not ask to reformulate again in the generated query"
-    "if you are not able to reformulate, please pass the query as is"
-    "Question: {orig_usr_query}"    
-)
-
-rewrite_prompt = ChatPromptTemplate.from_template(template)
-
-class WebSearchRetriever(Runnable[str, list[Document]]):
-        
-    def __init__(self, llm_model, agent_executor):
-        self.llm_model = llm_model
-        self.agent_executor = agent_executor
+def run_portfolio_allocator(query: str, risk_profile: str, invested_amount: float) -> str:
+    ''' Tool to answer any queries related to portfolio allocation or suggestions on investment allocation.
+        Args:
+            query: user query
+            risk_profile: risk profile of user eg aggressive, low, moderate etc
+            invested_amount: amount to be invested .'''
     
-    def invoke(self, usr_input: str, config: Optional[RunnableConfig] = None, **kwargs: Any) -> list[Document]:
-        print(f'Original user query: {usr_input}')
-        
-        from datetime import datetime
-
-        now = datetime.now() # current date and time
-        
-        base_date = now.strftime("%Y-%d-%m")
-        
-        rewriter = rewrite_prompt | self.llm_model | StrOutputParser()
-        reformulated_query = rewriter.invoke({"orig_usr_query": usr_input, "base_date": base_date})
-        
-        print(f'Reformulated user query: {reformulated_query}')
-        
-        #response = self.agent_executor.invoke({"input": reformulated_query})
-        #response = self.agent_executor.invoke({"input": [HumanMessage(content=reformulated_query)]})        
-        response = self.agent_executor.invoke({"messages": [HumanMessage(content=reformulated_query)]})
-        
-        print(f'responses from react agent {response}')
-        #origdocs = self.base_retriever.invoke(input, config, **kwargs)
-        #print(f'Docs from embeddings {origdocs}')
-        docs = []            
-        sources = []
-        
-        for aimsg in response["messages"]:
-            if isinstance(aimsg, AIMessage):
-                doc = Document(page_content=aimsg.content)
-                #docs.append(doc)
-            elif isinstance(aimsg, ToolMessage):
-                print(f'tool message content: {aimsg.content}')
-                doc = Document(page_content=aimsg.content)
-                docs.append(doc)
-                #if aimsg.content:
-                #    contentlst = ast.literal_eval(aimsg.content)
-                #    for cntdt in contentlst:
-                #        sources.append(cntdt["url"])
-                #        print(cntdt["url"])
-        
-        #for doc in docs:
-        #    doc.metadata = {"name": ",".join(sources)}
-        
-        print(docs)
-        
-        
-        #print(f"retrieved docs {retrieved_docs}")
-        #docs.extend(origdocs)
-                
-        #return retrieved_docs
-        return docs
+    logger.info(f'run_portfolio_allocator args: {query}; {risk_profile}; {invested_amount}')
+    
+    data = asyncio.run(run_portfolio_allocator(query, risk_profile, invested_amount))
+    
+    return data

@@ -9,6 +9,9 @@ from datetime import datetime, timedelta
 import numpy as np
 import traceback
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 yahoo_finance_api_lock = threading.Lock()
 
@@ -17,18 +20,18 @@ def perform_investment_analysis(ticker, start_date, investment_amount):
     returns_summary = 'Error getting data. Please try again later'
     try:        
         yahoo_finance_api_lock.acquire()
-        print(f'Loading data for {ticker}')
+        logger.info(f'Loading data for {ticker}')
         
         curr_price_data = yf.download(ticker, period='1d')
         
         curr_share_price = curr_price_data.Low.iloc[0]
         
-        print(f'Current price for {ticker} is {curr_share_price}')
+        logger.info(f'Current price for {ticker} is {curr_share_price}')
         price_data, stk_splits, divs = load_stock_data(ticker, start_date)
         
-        print(f'{ticker}: Price Data: \n{price_data}')
-        print(f'{ticker}: Stock splits: \n{stk_splits}')
-        print(f'{ticker}: Dividends: \n{divs}')
+        logger.info(f'{ticker}: Price Data: \n{price_data}')
+        logger.info(f'{ticker}: Stock splits: \n{stk_splits}')
+        logger.info(f'{ticker}: Dividends: \n{divs}')
         
         if price_data is None:
             return -1, -1, -1, -1
@@ -37,26 +40,26 @@ def perform_investment_analysis(ticker, start_date, investment_amount):
         price_data['Date'] = price_data['Date'].dt.tz_localize(None)
         stk_splits['Date'] = stk_splits['Date'].dt.tz_localize(None)
         
-        print("getting original purchase shares")
+        logger.info("getting original purchase shares")
         orig_purchase_price, orig_purchase_shares, split_or_bonus_shares = get_initial_shares_count(investment_amount, stk_splits, price_data)
         
-        print(f'{ticker}: Original purchase shares count: {orig_purchase_shares}')
-        print(f'{ticker}: Adjusted price: \n{price_data.High.iloc[0]}')
-        print(f'{ticker}: Split or Bonus Shares?: \n{split_or_bonus_shares}')
+        logger.info(f'{ticker}: Original purchase shares count: {orig_purchase_shares}')
+        logger.info(f'{ticker}: Adjusted price: \n{price_data.High.iloc[0]}')
+        logger.info(f'{ticker}: Split or Bonus Shares?: \n{split_or_bonus_shares}')
         
-        print("Adjust for splits and bonus")
+        logger.info("Adjust for splits and bonus")
         get_split_and_bonus_adjusted_shares_count(stk_splits, orig_purchase_shares)
         
-        print(f'{ticker}: Share count: \n{stk_splits.head()}')
+        logger.info(f'{ticker}: Share count: \n{stk_splits.head()}')
             
         if stk_splits.empty:
             current_shares_count = orig_purchase_shares
         else:
             current_shares_count = stk_splits['shares_count'].tail(1).values[0]
         
-        print("Get total dividends")
+        logger.info("Get total dividends")
         total_dividend_received = get_total_dividend_amt(divs, current_shares_count)
-        print(f'{ticker}: total dividend received: \n{total_dividend_received}')
+        logger.info(f'{ticker}: total dividend received: \n{total_dividend_received}')
         
         #Current market value without reinvesting dividend
         mkt_val_wo_div_reinv = curr_share_price * current_shares_count
@@ -64,7 +67,7 @@ def perform_investment_analysis(ticker, start_date, investment_amount):
         #print(type(mkt_val_wo_div_reinv))
         #print(dir(mkt_val_wo_div_reinv))
         
-        print("Get dividend reinvested shares")
+        logger.info("Get dividend reinvested shares")
         div_reinvest_stks_cnt = get_dividend_reinvested_shares(ticker, price_data, divs, stk_splits)
         
         #Current market value after reinvesting dividend
@@ -99,10 +102,9 @@ def perform_investment_analysis(ticker, start_date, investment_amount):
                 Purchase Price: {orig_purchase_price} {ca_adj_purchase_price_details}
                 Current Price: {curr_share_price}'''
         
-        print(returns_summary)
+        logger.info(returns_summary)
     except:
-        print(f'Exception occurred while getting investment returns.')
-        traceback.print_exc()
+        logger.error(f"Error occurred while processing request: {traceback.format_exc()}")
 
     yahoo_finance_api_lock.release()
     return returns_summary
@@ -114,7 +116,7 @@ def load_stock_data(ticker, start_date):
     price_data = yf.download(ticker, start=start_date, end=end_date)
     
     if price_data.empty:
-        print("No data available for the given date range.")
+        logger.info("No data available for the given date range.")
         return None, None, None
     
     nsetick = yf.Ticker(ticker)
@@ -157,16 +159,16 @@ def get_initial_shares_count(investment_amt, stk_splits, price_data):
 def get_split_and_bonus_adjusted_shares_count(stk_splits, orig_purchase_shares):
 
     if stk_splits.empty:
-        print("No stock splits/bonus data available.")
+        logger.info("No stock splits/bonus data available.")
         return
     
     # Initialize the new column with NaN values
     stk_splits['shares_count'] = pd.NA
     
-    print("getting additional shares count for 1st bonus")
+    logger.info("getting additional shares count for 1st bonus")
     stk_splits['shares_count'] = stk_splits['Stock Splits'].iloc[0] * orig_purchase_shares
     
-    print("getting original purchase shares for other bonus")
+    logger.info("getting original purchase shares for other bonus")
     # For the rest of the rows, multiply by the previous value in the new column
     for i in range(1, len(stk_splits)):
         stk_splits.loc[i, 'shares_count'] = stk_splits['shares_count'].iloc[i-1] * stk_splits.loc[i, 'Stock Splits']
@@ -194,7 +196,7 @@ def get_dividend_reinvested_shares(ticker, price_data, divs, stk_splits):
     div_reinvest_stks_cnt = 0
     prev_div_date = price_data['Date'].iloc[0]
     
-    print(f'{ticker}: Previous div date \n{prev_div_date}')
+    logger.info(f'{ticker}: Previous div date \n{prev_div_date}')
     
     #divs['Date'] = divs['Date'].dt.tz_localize(None)
     
@@ -206,12 +208,12 @@ def get_dividend_reinvested_shares(ticker, price_data, divs, stk_splits):
         stk_price = stk_price.reset_index()
         stk_splits_post_divs = stk_splits[stk_splits['Date'] > div_dt]
         
-        print(f"Stock split post divs: \n{stk_splits_post_divs}")
+        logger.info(f"Stock split post divs: \n{stk_splits_post_divs}")
         split_ratio = stk_splits_post_divs['Stock Splits'].product()
         
         actual_stk_price = stk_price["High"].iloc[0] * split_ratio
         
-        print(f'Adjusted stock price {stk_price["High"].iloc[0]} and actual price {actual_stk_price} on date {stk_price["Date"].iloc[0]}')
+        logger.info(f'Adjusted stock price {stk_price["High"].iloc[0]} and actual price {actual_stk_price} on date {stk_price["Date"].iloc[0]}')
         
         div_reinvest_stks_cnt += int(div_amt/actual_stk_price)
         
@@ -220,20 +222,20 @@ def get_dividend_reinvested_shares(ticker, price_data, divs, stk_splits):
         #stk_splits_between_divs = stk_splits[stk_splits['Date'] > prev_div_date][stk_splits['Date'] < div_dt]
         stk_splits_between_divs = stk_splits[stk_splits['Date'].between(prev_div_date, div_dt)]
         
-        print(f"Stock split between {prev_div_date } and {div_dt}: {stk_splits_between_divs}")
+        logger.info(f"Stock split between {prev_div_date } and {div_dt}: {stk_splits_between_divs}")
         
         for i in range(0, len(stk_splits_between_divs)):
             div_reinvest_stks_cnt = stk_splits_between_divs['Stock Splits'].iloc[i] * div_reinvest_stks_cnt
-            print(f"Applying stock split ratio {stk_splits_between_divs['Stock Splits'].iloc[i]}")
+            logger.info(f"Applying stock split ratio {stk_splits_between_divs['Stock Splits'].iloc[i]}")
         
         
         prev_div_date = div_dt
-        print("*********************************************************")
+        logger.info("*********************************************************")
         #print(f'Stock Price on div date: {div_dt} {div_amt} {stk_price["High"].iloc[0]} {actual_stk_price}')
         
         #div_reinvest_stks_cnt = div_reinvest_stks_cnt + int(div_amt / stk_price["High"].iloc[0])
     
-    print(f'Total no of additional stocks after dividend reinvestment: {int(div_reinvest_stks_cnt)}')
+    logger.info(f'Total no of additional stocks after dividend reinvestment: {int(div_reinvest_stks_cnt)}')
     
     return int(div_reinvest_stks_cnt)
 
