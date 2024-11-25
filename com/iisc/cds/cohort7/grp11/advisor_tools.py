@@ -12,7 +12,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from com.iisc.cds.cohort7.grp11.stock_investment_analysis import perform_investment_analysis
 from com.iisc.cds.cohort7.grp11.stock_fundamental_analysis import perform_fundamental_analysis
 from com.iisc.cds.cohort7.grp11.mf_analysis import perform_mutual_fund_analysis
-from com.iisc.cds.cohort7.grp11.portfolio_allocator import run_portfolio_allocator
+from com.iisc.cds.cohort7.grp11.portfolio_allocator import run_portfolio_allocator_details
 import logging
 
 logger = logging.getLogger(__name__)
@@ -207,6 +207,6 @@ def run_portfolio_allocator(query: str, risk_profile: str, invested_amount: floa
     
     logger.info(f'run_portfolio_allocator args: {query}; {risk_profile}; {invested_amount}')
     
-    data = asyncio.run(run_portfolio_allocator(query, risk_profile, invested_amount))
+    data = asyncio.run(run_portfolio_allocator_details(query, risk_profile, invested_amount))
     
     return data

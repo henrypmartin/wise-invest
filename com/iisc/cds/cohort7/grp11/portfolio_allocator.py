@@ -471,17 +471,16 @@ def format_portfolio_response(allocation: Dict, original_query : str) -> str:
         return (f"Error formatting portfolio response: {str(e)}\n"
                 f"Raw allocation: {json.dumps(allocation, indent=2)}")
 
-api_key="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"
-llm = ChatOpenAI(api_key=api_key, temperature=0.2, model="gpt-4o")
+llm = ChatOpenAI(temperature=0.2, model="gpt-4o")
 allocator = DynamicPortfolioAllocator(llm)
 
-async def run_portfolio_allocator(query, risk_profile, investment_amount):
+async def run_portfolio_allocator_details(query, risk_profile, investment_amount):
     logger.info(f"Inside run_portfolio_allocator with args: {query}; {risk_profile}; {investment_amount}")
     allocation = await allocator.get_dynamic_allocation(query=query, risk_profile=risk_profile, investment_amount=investment_amount)
     
     return format_portfolio_response(allocation, query)
 
-query='I want to invest 5 lakhs in Indian market with aggressive risk, can you suggest the stocks and the amount of shares to purchase'
+#query='I want to invest 5 lakhs in Indian market with aggressive risk, can you suggest the stocks and the amount of shares to purchase'
 
 #det = asyncio.run(run_portfolio_allocator(query, 'aggressive', 500000))
 

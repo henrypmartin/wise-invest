@@ -3,6 +3,7 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 import sys
+import secrets
 
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 print(root_path)
@@ -26,15 +27,20 @@ def load_css(css_file):
 
 # Add a transparent logo to the sidebar
 def add_sidebar_logo():
-    logo_url = "https://iisc.ac.in/wp-content/uploads/2020/08/IISc_Master_Seal_Black_Transparent.png"  # Replace with your transparent logo URL
+    iisc_logo_url = "https://iisc.ac.in/wp-content/uploads/2020/08/IISc_Master_Seal_Black_Transparent.png"  # Replace with your transparent logo URL
+    ts_logo_url = "https://static.talentsprint.com/ts_drupal/talentsprint/images/logo.webp"
     logo_html = f"""
     <div style="
         display: flex; 
-        justify-content: center; 
         align-items: center; 
         margin-bottom: 5px;">
-        <img src="{logo_url}" alt="IISC Logo" style="
-            max-width: 100%; 
+        <img src="{ts_logo_url}" alt="TS Logo" style="
+            max-width: 50%; 
+            height: auto; 
+            opacity: 0.8; 
+            border-radius: 10px;" />
+        <img src="{iisc_logo_url}" alt="IISC Logo" style="
+            max-width: 50%; 
             height: auto; 
             opacity: 0.8; 
             border-radius: 10px;" />
@@ -87,6 +93,9 @@ def main():
     if "chathistory" not in st.session_state:
         st.session_state.chathistory = []
 
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = secrets.token_urlsafe(5)
+        
     # Display chat messages
     for message in st.session_state.chathistory:
         with st.chat_message(message["role"]):
@@ -101,16 +110,16 @@ def main():
         with st.chat_message("user"):
             st.markdown(input_text)
 
-        chat_response = generate_response(input_text, 1)
-        st.session_state.reloadindex=False
+        #chat_response = generate_response(input_text, 1)
+        #st.session_state.reloadindex=False
         
         # Generate response
         with st.chat_message("assistant"):
             with st.spinner("Fetching response..."):
-                #time.sleep(3)
+                chat_response = generate_response(input_text, st.session_state.session_id)
                 st.markdown(chat_response)        
                 # Add assistant response to chat history
-        st.session_state.chathistory.append({"role": "assistant", "text": chat_response})
+                st.session_state.chathistory.append({"role": "assistant", "text": chat_response})
 
     
     st.markdown('</div>', unsafe_allow_html=True)  # Close main-content
