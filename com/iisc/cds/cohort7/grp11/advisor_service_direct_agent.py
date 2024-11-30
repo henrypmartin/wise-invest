@@ -16,7 +16,8 @@ from com.iisc.cds.cohort7.grp11.advisor_tools import (calculate_stock_investment
                                                       process_company_queries, 
                                                       process_generic_mutual_fund_queries,
                                                       process_specific_mutual_fund_queries,
-                                                      run_portfolio_allocator)
+                                                      run_portfolio_allocator,
+                                                      process_generic_queries)
 
 from datetime import datetime
 import traceback
@@ -40,8 +41,8 @@ llm = ChatOpenAI(model="gpt-4o", temperature=0.1)
 def get_agent_executor():
     
     tools = [process_company_queries, calculate_stock_investment_returns, 
-             process_specific_mutual_fund_queries, process_generic_mutual_fund_queries
-             ,run_portfolio_allocator]
+             process_specific_mutual_fund_queries, process_generic_mutual_fund_queries,
+             run_portfolio_allocator, process_generic_queries]
     
     agent_executor = create_react_agent(llm, tools, state_modifier=output_formatter_prompt_template, checkpointer=memory, debug=True)
         

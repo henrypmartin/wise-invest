@@ -62,16 +62,18 @@ def process_specific_mutual_fund_queries(mf_name: str, mf_ticker: str) -> str:
     
     logger.info(f'process_specific_mutual_fund_queries args: {mf_name}; {mf_ticker}')
     
-    search.include_domains = ["www.valueresearchonline.com"]
+    search.include_domains = ["www.valueresearchonline.com", "www.paytmmoney.com", "www.moneycontrol.com"]
     
-    invoke_op = search.invoke(mf_name)
+    invoke_op = search.invoke(mf_name  + 
+                              f". Assets under management (AUM) or scheme asset size for {mf_name}. Fund Managers for {mf_name}." +
+                              f"Expense Ratio for {mf_name}")
     
     analysis = perform_mutual_fund_analysis(mf_name, mf_ticker)
     
     search_data = [analysis]
     for op in invoke_op:
         search_data.append(op['content'])
-        logger.info(f"{op['url']} == {op['content']}")        
+        logger.info(f"{op['url']} == {op['content']}")
     
     return ' '.join(search_data) 
 
@@ -84,7 +86,7 @@ def process_generic_mutual_fund_queries(user_query: str) -> str:
     
     logger.info(f'process_generic_mutual_fund_queries args: {user_query}')
     
-    search.include_domains = ["www.valueresearchonline.com"]
+    search.include_domains = ["www.valueresearchonline.com", "www.paytmmoney.com", "www.moneycontrol.com"]
     
     invoke_op = search.invoke(user_query)
     
@@ -99,8 +101,11 @@ def process_generic_mutual_fund_queries(user_query: str) -> str:
     return ' '.join(search_data) 
     
 def process_generic_queries(user_query: str) -> str:
-    ''' Returns responses to generic user queries based on the web 
-    search'''
+    ''' Returns responses to generic user queries based on the web search.
+        Make calls to any of the below tools as appropriate:
+            process_stock_fundamentals_queries: to get fundamental details of companies
+            calculate_stock_investment_returns: to get historic returns analysis of companies
+    '''
     
     #search.include_domains = ["morningstar.in"]
     
@@ -156,10 +161,11 @@ def process_stock_fundamentals_queries(user_query: str, ticker: str) -> str:
 
 def process_company_queries(user_query: str, company_name: str, ticker: str) -> str:
     ''' Tool to answer queries related to any listed companies in India.
+        If required, make calls to process_stock_fundamentals_queries to get details of other companies
         Args:
             user_query: question including the company name as understood by 5paisa.com
             company_name: company name of listed Indian company
-            ticker: the ticker symbol for listed Indian company in the form as expected by Yahoo finance API eg INFY.NS for Infosys limited"
+            ticker: the ticker symbol for listed Indian company in the form as expected by Yahoo finance API"
      '''
     
     logger.info(f'process_company_queries args: {user_query}; {company_name}; {ticker}')

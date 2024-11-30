@@ -43,7 +43,7 @@ def get_ticker(mf_name):
             logger.info(f'Getting mutual fund symbol for: {mf_name_updated}')
             res = requests.get(url=url, params=params, headers=headers)
             data = res.json()
-            logger.info(data)
+            logger.info(data['quotes'])
             
             if 'quotes' in data:
                 for mf_quote in data['quotes']:
@@ -83,22 +83,20 @@ def perform_mutual_fund_analysis(mf_name: str, ticker: str):
             logger.info(f'Replacing MF ticker {ticker} with {ticker_for_name} for mutual fund {mf_name}')
             ticker = ticker_for_name
         
-        logger.info(f'Loading data for {ticker}')
+        logger.info(f'Loading data for MF {mf_name} : {ticker}')
         
         returns_summary = load_mf_data(ticker)
     except:
-        logger.error(f"Error occurred while processing request: {traceback.format_exc()}")
+        logger.error(f"Error occurred while processing MF request: {traceback.format_exc()}")
     
     yahoo_finance_api_lock.release()
     return returns_summary
 
 def print_mf_details(data_type, data):
-    #print(f'*******************{data_type}************************')
-    #print(data)
-    pass
-    
-    
-
+    print(f'*******************{data_type}************************')
+    print(data)
+    #pass
+  
 def load_mf_data(ticker):
 
     nsetick = yf.Ticker(ticker)
@@ -194,12 +192,29 @@ def load_mf_data(ticker):
         if 'alpha' in risk_statistics:
             fund_details[f'{risk_statistics["year"]} alpha'] = risk_statistics['alpha']
     
+    if 'fundProfile' in nsetick.all_modules[ticker]:
+        check_and_add_fund_details('family', nsetick.all_modules[ticker]['fundProfile'], 'Fund Family', False)
+    
+    if 'summaryDetail' in nsetick.all_modules[ticker]:
+        check_and_add_fund_details('fiftyTwoWeekLow', nsetick.all_modules[ticker]['summaryDetail'], '52-week low', False)
+        check_and_add_fund_details('fiftyTwoWeekHigh', nsetick.all_modules[ticker]['summaryDetail'], '52-week high', False)
+    
+    if 'esgScores' in nsetick.all_modules[ticker]:
+        check_and_add_fund_details('totalEsg', nsetick.all_modules[ticker]['esgScores'], 'ESG Score', False)
+        check_and_add_fund_details('ratingYear', nsetick.all_modules[ticker]['esgScores'], 'ESG rating year', False)
+        check_and_add_fund_details('ratingMonth', nsetick.all_modules[ticker]['esgScores'], 'ESG rating month', False)
+    
+    if 'defaultKeyStatistics' in nsetick.all_modules[ticker]:        
+        check_and_add_fund_details('morningStarOverallRating', nsetick.all_modules[ticker]['defaultKeyStatistics'], 'Morningstar Overall Rating', False)
+        check_and_add_fund_details('morningStarRiskRating', nsetick.all_modules[ticker]['defaultKeyStatistics'], 'Morningstar Risk Rating', False)
+        check_and_add_fund_details('fundInceptionDate', nsetick.all_modules[ticker]['defaultKeyStatistics'], 'Fund Inception', False)
+    
     analysis = json.dumps(fund_details, indent=4)
     
     #print(f'MF analysis for {ticker} is {analysis}')
     
     return analysis
     
-#print(perform_mutual_fund_analysis("Invesco India Largecap Fund", "0P0000KV39.BO"))
+#print(perform_mutual_fund_analysis("SBI small cap fund", "xxxxxx.BO"))
 #print(perform_mutual_fund_analysis("0P0001BAGX.BO"))
 #print(get_ticker("0P0000KV39.BO"))

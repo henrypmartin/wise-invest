@@ -72,25 +72,73 @@ user_prompt_template = (
 )
 
 mf_suggestions_prompt = '''
-    1. Mutual fund name without any suffix like regular, direct, growth etc
-        * NAV of the fund
-        * Year to date, 1 year, 3 years and 5 years performance
-        * Year wise returns
-        * Year to date, 1 year, 3 years and 5 years rank in category
-        * Risk level of the fund
-        * Investment allocation of the fund i:e % in equities, bonds, cash etc
-        * Top 10 stocks in the fund with allocation percentage
-        * Top 10 sectors allocations percentage
-        * Ratings wise bonds allocation if any
-        * 1 year, 3 year, 5 year and 10 year alpha
-        * Fund manager name
+    If any of the below mentioned details are not available (Not specified), exclude it from response
+    Mutual fund name without any suffix like regular, direct, growth etc.
+        * Fund family:        
+        * NAV of the fund:
+        * Assets Under Management(AUM)/Scheme Asset Size:
+        * 52-week High/low: 
+        * Fund Inception in DD-MM-YYYY:
+        * Morningstar Overall Rating:
+        * Morningstar Risk Rating:
+        * ESG Score: (ESG rating year/month)
+        * Fund Returns:
+            * Year to date returns:
+            * 1 year returns:
+            * 3 years returns:
+            * 5 years returns:
+        * Year wise returns (present in tabular format with years as row):
+        * Rank in category:
+            * Year to date rank:
+            * 1 year rank:
+            * 3 years rank:
+            * 5 years rank:
+        * Risk level of the fund:
+        * Investment allocation of the fund i:e % in equities, bonds, cash etc:
+        * Top 10 stocks in the fund with allocation percentage:
+        * Top 10 sectors allocations percentage:
+        * Ratings wise bonds allocation if any:
+        * Fund Alpha:
+            * 1 year alpha:
+            * 3 year alpha:
+            * 5 year alpha:
+            * 10 year alpha:
+        * Expense Ratio:
+        * Fund manager:
+    * List down 5 peers funds in same category. Include below details (present in tabular format):
+        NAV of the fund
+        Fund Returns:
+            * Year to date returns:
+            * 1 year returns:
+            * 3 years returns:
+            * 5 years returns:
+        Rank in category:
+            * Year to date rank:
+            * 1 year rank:
+            * 3 years rank:
+            * 5 years rank:
+        Fund Alpha:
+            * 1 year alpha:
+            * 3 year alpha:
+            * 5 year alpha:
+            * 10 year alpha:        
 '''
 
 stock_fundatentals_template = ''' 
-1. Introduction
+If any of the below mentioned details are not available, exclude it from response
+* Introduction
     Briefly describe the company, its business model, and industry. Include details such as market position, main products or services, and geographical presence.
-2. Financial Metrics
-    Revenue and Growth Trends: provide numbers for annual revenue. Figures are in crores. Comment on the growth or decline trends.
+    Include data from "long business summary"
+    - CEO:
+    - CFO:
+* Current Share Price: (Current Share Price Time)
+    Previous Close:
+* 52-Week High/Low:
+* Market Cap: in crores
+* Financial Metrics
+    Revenue and Growth Trends: 
+        Provide numbers for annual revenue. Figures are in crores.
+        Comment on the growth or decline trends.
     Profitability:
         Net Profit Margin: provide numbers for Ratio of net income to revenue.
         Operating Margin: provide numbers for Operating profit as a percentage of revenue.
@@ -98,29 +146,47 @@ stock_fundatentals_template = '''
             ROE (Return on Equity): <Profitability relative to shareholders’ equity> provide numbers for return on equity.
             ROA (Return on Assets): <Efficiency in using assets to generate profits> provide numbers for return on assets.
             Earnings Per Share (EPS): provide numbers for earnings per share.
-            Dividends: provide numbers for dividend payout history, yield, and growth.
-3. Valuation Metrics
+            Revenue Per Share (EPS): provide numbers for earnings per share.
+            Dividends: last 5 dividends payout history.(present in tabular format with years as row)
+            Dividend Yield:
+* Valuation Metrics
     Price-to-Earnings (P/E) Ratio: <Assess if the stock is overvalued or undervalued> provide numbers for price to earnings ratio.
     Price-to-Book (P/B) Ratio: <Compare market value with book value> provide numbers for price to book ratio.
     PEG Ratio: <Evaluate P/E relative to earnings growth> provide numbers for PEG ratio.
-4. Liquidity and Solvency
+* Liquidity and Solvency
     Current Ratio: <Current assets divided by current liabilities> provide numbers for current ratio. Comment on the current ratio numbers 
     Debt-to-Equity Ratio: <Indication of financial leverage> provide numbers for debt to equity ratio. Comment on the Debt-to-equity ratio numbers
     Interest Coverage Ratio: <Ability to cover interest expenses> provide numbers for interest coverage ratio.
-5. Operating Performance
-    Highlight inventory turnover, asset turnover, and other efficiency metrics.
-    Compare against industry averages or competitors.
-6. Sector and Industry Analysis
+* Operating Performance
+    Total Revenue: in crores
+    Net Income: in crores
+    Free Cash Flow: in crores
+* Balance Sheet
+    Total Assets: in crores
+    Cash And Cash Equivalents: in crores
+    Stockholders Equity: in crores
+    Retained Earnings: in crores
+    Total Debt: in crores
+* Sector and Industry Analysis
     Contextualize the company's performance with broader industry trends.
     Include growth drivers, potential challenges, and regulatory impacts.
-7. Management and Governance
+* Management and Governance
+    ESG Rating: (ESG Rating Year/Month)
+        Environment Score:
+        Social Score:
+        Governance Score:
     Evaluate the management team, strategy, and corporate governance practices.
-8. SWOT Analysis
+* SWOT Analysis
     Summarize strengths, weaknesses, opportunities, and threats.
-9. Investment Perspective
+* Investment Perspective
     Conclude with key takeaways:
     Is the company undervalued or overvalued?
     Long-term growth potential or risks.
+* List down top 5 peers companies. Include below details (present in tabular format):
+    Current Share Price
+    Return on Equity
+    Earnings Per Share
+    Price-to-Earnings (P/E) Ratio
 '''
 
 user_query_prompt = ChatPromptTemplate.from_template(user_prompt_template)

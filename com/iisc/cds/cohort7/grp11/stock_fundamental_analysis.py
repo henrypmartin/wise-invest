@@ -9,6 +9,7 @@ import traceback
 
 import pandas as pd
 import yfinance as yf
+from yahooquery import Ticker
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,14 +28,16 @@ def perform_fundamental_analysis(ticker):
         
         returns_summary = load_stock_data(ticker)
     except:
-        logger.error(f"Error occurred while processing request: {traceback.format_exc()}")
+        logger.error(f"Error occurred while processing fundamental analysis request: {traceback.format_exc()}")
     
     yahoo_finance_api_lock.release()
     return returns_summary
 
-def print_stock_details(data, data_type):
-    print(f'*****************************{data_type}******************************************')
-    print(data)
+def add_stock_details(data_desc, data_dict, data_key, result):
+    #print(f'*****************************{data_type}******************************************')
+    #print(data)
+    if data_key in data_dict:
+        result[data_desc] = data_dict[data_key]
 
 def load_stock_data(ticker):
 
@@ -129,6 +132,45 @@ def load_stock_data(ticker):
         "Price-to-Book (P/B) Ratio": nsetick.info.get("priceToBook")
         }
     
+    nsetick = Ticker(ticker)
+    
+    if 'assetProfile' in nsetick.all_modules[ticker]:        
+        add_stock_details('Long Business Summary', nsetick.all_modules[ticker]['assetProfile'], 'longBusinessSummary', result)
+        
+        print(f"company offiers: {nsetick.all_modules[ticker]['assetProfile']['companyOfficers']}")
+        for cmp_officers in nsetick.all_modules[ticker]['assetProfile']['companyOfficers']:
+            if cmp_officers['title'].lower().find("ceo") > 0 or cmp_officers['title'].lower().find("chief executive officer") >= 0:
+                add_stock_details('CEO', cmp_officers, 'name', result)            
+            elif cmp_officers['title'].lower().find("cfo") > 0 or cmp_officers['title'].lower().find("chief financial officer") >= 0:
+                add_stock_details('CFO', cmp_officers, 'name', result)
+        
+    
+    if 'price' in nsetick.all_modules[ticker]:        
+        add_stock_details('Current Share Price', nsetick.all_modules[ticker]['price'], 'regularMarketPrice', result)
+        add_stock_details('Current Share Price Time', nsetick.all_modules[ticker]['price'], 'regularMarketTime', result)
+    
+    if 'summaryDetail' in nsetick.all_modules[ticker]:        
+        add_stock_details('Previous Close', nsetick.all_modules[ticker]['summaryDetail'], 'previousClose', result)
+        add_stock_details('52-Week Low', nsetick.all_modules[ticker]['summaryDetail'], 'fiftyTwoWeekLow', result)
+        add_stock_details('52-Week High', nsetick.all_modules[ticker]['summaryDetail'], 'fiftyTwoWeekHigh', result)
+        add_stock_details('Dividend Yield', nsetick.all_modules[ticker]['summaryDetail'], 'dividendYield', result)
+        add_stock_details('Market Cap', nsetick.all_modules[ticker]['summaryDetail'], 'marketCap', result)
+    
+    if 'esgScores' in nsetick.all_modules[ticker]:
+        add_stock_details('ESG Rating', nsetick.all_modules[ticker]['esgScores'], 'totalEsg', result)
+        add_stock_details('Environment Score', nsetick.all_modules[ticker]['esgScores'], 'environmentScore', result)
+        add_stock_details('Social Score', nsetick.all_modules[ticker]['esgScores'], 'socialScore', result)
+        add_stock_details('Governance Score', nsetick.all_modules[ticker]['esgScores'], 'governanceScore', result)
+        add_stock_details('ESG Rating Year', nsetick.all_modules[ticker]['esgScores'], 'ratingYear', result)
+        add_stock_details('ESG Rating Month', nsetick.all_modules[ticker]['esgScores'], 'ratingMonth', result)
+    
+    if 'financialData' in nsetick.all_modules[ticker]:        
+        add_stock_details('Revenue Per Share', nsetick.all_modules[ticker]['financialData'], 'revenuePerShare', result)
+        add_stock_details('Debt To Equity', nsetick.all_modules[ticker]['financialData'], 'debtToEquity', result)
+        add_stock_details('Current Ratio', nsetick.all_modules[ticker]['financialData'], 'currentRatio', result)
+    #print_stock_details('returnOnAssets', nsetick.all_modules[ticker]['financialData']['returnOnAssets'])
+    #print_stock_details('returnOnEquity', nsetick.all_modules[ticker]['financialData']['returnOnEquity'])
+    
     analysis = json.dumps(result, indent=4)
     logger.info(f'Fundamental analysis details for {ticker} is {analysis}')
     #print(analysis)
@@ -145,4 +187,4 @@ def load_stock_data(ticker):
     #print_stock_details(nsetick.recommendations_summary, 'nsetick.recommendations_summary')
     #print_stock_details(nsetick.splits, 'nsetick.splits')
 
-#print(perform_fundamental_analysis("FINOLEXIND.BO"))
+#print(perform_fundamental_analysis("HDFCBANK.NS"))
